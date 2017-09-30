@@ -25,9 +25,9 @@ class Dataset:
         self._img_channels = img_channels
         self._img_dir = img_dir
         self._number_to_label_dict = {}
-        self._saved_data = False
         self._num_classes = 0
         self._input_shape = ()
+        self._samples = 0
 
     @property
     def num_classes(self):
@@ -49,45 +49,47 @@ class Dataset:
     def input_shape(self):
         return self._input_shape
 
-    def load_data(self, npz_path: str, test_size: float = 0.2):
-        if not self._saved_data:
+    @property
+    def samples(self):
+        return self._samples
 
+    def load_data(self, npz_path: str, test_size: float = 0.2):
+        if Path(npz_path).exists():
+            print("npz data file '{}' already exist.".format(npz_path))
+        else:
+            print("npz data file not exist.")
             self._save_npz(Path(npz_path).parent, Path(npz_path).name)
 
         print(
-            "starting load data to '(x_train, y_train), (x_test, y_test)'...")
+            "Starting load data to '(x_train, y_train), (x_test, y_test)'...")
+
+        # load and parse data for npz file
         with np.load(npz_path) as f:
             x = f['x']
             y = f['y']
+            self._number_to_label_dict = dict(f['label'].tolist())
+        self._num_classes = y.shape[1]
+        self._samples = x.shape[0]
+        self._input_shape = x.shape[1:]
+        if x.shape[1] == 1:
+            self._img_width = x.shape[3]
+            self._img_height = x.shape[2]
+            self._img_channels = x.shape[1]
+        else:
+            self._img_width = x.shape[2]
+            self._img_height = x.shape[1]
+            self._img_channels = x.shape[3]
 
-        self._num_classes = len(set(y))
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, test_size=test_size, random_state=2)
 
-        if K.image_data_format() == 'channels_first':
-            x_train = x_train.reshape(x_train.shape[0], self._img_channels,
-                                      self._img_height, self._img_width)
-            x_test = x_test.reshape(x_test.shape[0], self._img_channels,
-                                    self._img_height, self._img_width)
-            self._input_shape = (self._img_channels, self._img_height,
-                                 self._img_width)
-        else:  # channels_last
-            x_train = x_train.reshape(x_train.shape[0], self._img_height,
-                                      self._img_width, self._img_channels)
-            x_test = x_test.reshape(x_test.shape[0], self._img_height,
-                                    self._img_width, self._img_channels)
-            self._input_shape = (self._img_height, self._img_width,
-                                 self._img_channels)
+        print(
+            'Load or parse data samples ({}) completed.'.format(self._samples))
 
-        y_train = to_categorical(y_train, self._num_classes)
-        y_test = to_categorical(y_test, self._num_classes)
-
-        print('load data samples ({}) completed.'.format(
-            x_train.shape[0] + x_test.shape[0]))
         return (x_train, y_train), (x_test, y_test)
 
     def query_label(self, number: int) -> str:
-        return self._number_to_label_dict.get(number, "invalid number")
+        return self._number_to_label_dict.get(number, "Invalid number")
 
     def _collect_dirs(self):
         return (dir for dir in Path(self._img_dir).iterdir()
@@ -112,12 +114,12 @@ class Dataset:
         x = []
         y = []
         label_code = 0
-        file_cnt = 0
-        print('starting read and process image files...')
+
+        print('Starting read and process image files...')
         for label, files in self._scan_dir():
             for file in files:
                 im = Image.open(file)
-                file_cnt += 1
+                self._samples += 1
                 # channels convert
                 if self._img_channels == 3:
                     im = im.convert("RGB")
@@ -130,19 +132,30 @@ class Dataset:
             self._number_to_label_dict[label_code] = label
             label_code += 1
 
-        print('total read and process ({}) image files.'.format(file_cnt))
+        self._num_classes = len(self._number_to_label_dict)
+        print('Total read and process ({}) image files.'.format(self._samples))
         x = np.array(x).astype('float32')
         x /= 255  # normalize
 
         y = np.array(y).astype('int64')
+
+        if K.image_data_format() == 'channels_first':
+            x = x.reshape(x.shape[0], self._img_channels, self._img_height,
+                          self._img_width)
+        else:  # channels_last
+            x = x.reshape(x.shape[0], self._img_height, self._img_width,
+                          self._img_channels)
+
+        y = to_categorical(y, self._num_classes)
 
         return (x, y)
 
     def _save_npz(self, dest_path: str = './data',
                   filename: str = 'test_data') -> None:
         (x, y) = self._im2np()
-        print('starting save npz data...')
+
+        print('Starting save npz data...')
         file_path = dest_path / filename
-        np.savez(file_path, x=x, y=y)
-        print("saved npz data to '{}'".format(file_path.resolve()))
-        self._saved_data = True
+        np.savez(
+            file_path, x=x, y=y, label=np.array(self._number_to_label_dict))
+        print("Saved npz data to '{}'".format(file_path.resolve()))
