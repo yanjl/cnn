@@ -55,15 +55,18 @@ class Dataset:
 
     def load_data(self, npz_path: str, test_size: float = 0.2):
         if Path(npz_path).exists():
+            # next step, load and parse npz file.
             print("npz data file '{}' already exist.".format(npz_path))
         else:
+            # next step, read image files and save to npz file.
             print("npz data file not exist.")
-            self._save_npz(Path(npz_path).parent, Path(npz_path).name)
+            self._save_npz(npz_path)
 
         print(
-            "Starting load data to '(x_train, y_train), (x_test, y_test)'...")
+            "Starting load npz file and parse data to '(x_train, y_train), (x_test, y_test)'..."
+        )
 
-        # load and parse data for npz file
+        # load npz file and parse data for npz file
         with np.load(npz_path) as f:
             x = f['x']
             y = f['y']
@@ -83,8 +86,8 @@ class Dataset:
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, test_size=test_size, random_state=2)
 
-        print(
-            'Load or parse data samples ({}) completed.'.format(self._samples))
+        print('Load npz file and parse data samples ({}) completed.'.format(
+            self._samples))
 
         return (x_train, y_train), (x_test, y_test)
 
@@ -98,9 +101,9 @@ class Dataset:
     def _scan_dir(self):
         """
         return [(label1, [file1,file2,...,fileN]),
-             (label2, [file1,file2,...,fileN]),
-              ...,
-               (labelN, [file1,file2,...,fileN])]
+                (label2, [file1,file2,...,fileN]),
+                ...,
+                (labelN, [file1,file2,...,fileN])]
         """
 
         def _collect_files(path):  # type: Path
@@ -150,12 +153,10 @@ class Dataset:
 
         return (x, y)
 
-    def _save_npz(self, dest_path: str = './data',
-                  filename: str = 'test_data') -> None:
+    def _save_npz(self, npz_path: str) -> None:
         (x, y) = self._im2np()
 
         print('Starting save npz data...')
-        file_path = dest_path / filename
         np.savez(
-            file_path, x=x, y=y, label=np.array(self._number_to_label_dict))
-        print("Saved npz data to '{}'".format(file_path.resolve()))
+            npz_path, x=x, y=y, label=np.array(self._number_to_label_dict))
+        print("Saved npz data to '{}'".format(Path(npz_path).resolve()))
