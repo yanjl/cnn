@@ -62,9 +62,8 @@ class Dataset:
             print("npz data file not exist.")
             self._save_npz(npz_path)
 
-        print(
-            "Starting load npz file and parse data to '(x_train, y_train), (x_test, y_test)'..."
-        )
+        print("Starting load npz file and parse data to"
+              "'(x_train, y_train), (x_test, y_test)'...")
 
         # load npz file and parse data for npz file
         with np.load(npz_path) as f:
@@ -160,3 +159,30 @@ class Dataset:
         np.savez(
             npz_path, x=x, y=y, label=np.array(self._number_to_label_dict))
         print("Saved npz data to '{}'".format(Path(npz_path).resolve()))
+
+
+"""
+Image dir structure
+cnn/
+    dog/ 1.jpg
+         2.jpg
+    cat/ 1.jpg
+         2.jpg
+         3.jpg
+    hosr/a.jpg
+         b.jpg
+         c.jpg
+    ....
+img_dir = ./cnn
+
+Example:
+
+>>>from dataset import Dataset
+>>>
+>>>cnn_ds = Dataset(img_dir='./cnn', img_width=320, img_height=320,
+                    img_channels=3)
+>>>
+>>>(x_train, y_train), (x_test, y_test) = cnn_ds.load_data(
+        npz_path='./cnn/test_data.npz')
+>>>print(cnn_ds.input_shape)  (320,320,3) #tensorflow channel_last
+"""
