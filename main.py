@@ -14,9 +14,7 @@ class Data:
 
 def main():
     print(add(2, 3))
-    a = [1, 2, 3]
-    dd = Data(a)
-    print(dd[2])
+    
 
 
 if __name__ == '__main__':
