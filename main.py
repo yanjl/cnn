@@ -14,7 +14,7 @@ class Data:
 
 def main():
     print(add(2, 3))
-    
+    print('git test.')
 
 
 if __name__ == '__main__':
